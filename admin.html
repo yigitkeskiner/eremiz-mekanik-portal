@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel - Eremiz Mekanik</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; }
+    .header {
+      background: #1e293b;
+      color: white;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 { font-size: 18px; }
+    .header button {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .tabs {
+      background: white;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 0 24px;
+      display: flex;
+      gap: 4px;
+    }
+    .tab {
+      padding: 14px 20px;
+      cursor: pointer;
+      font-size: 14px;
+      color: #666;
+      border-bottom: 3px solid transparent;
+      font-weight: 500;
+    }
+    .tab.aktif {
+      color: #1a56db;
+      border-bottom-color: #1a56db;
+    }
+    .container { max-width: 1000px; margin: 24px auto; padding: 0 16px; }
+    .sayfa { display: none; }
+    .sayfa.aktif { display: block; }
+    .kart {
+      background: white;
+      border-radius: 10px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .kart h2 { font-size: 15px; color: #333; margin-bottom: 16px; }
+    .form-satir {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .form-grup { display: flex; flex-direction: column; flex: 1; min-width: 150px; }
+    label { font-size: 12px; color: #555; margin-bottom: 4px; font-weight: 500; }
+    input, select {
+      padding: 9px 12px;
+      border: 1px solid #ddd;
+      border-radius: 7px;
+      font-size: 13px;
+      outline: none;
+    }
+    input:focus, select:focus { border-color: #1a56db; }
+    .btn {
+      padding: 9px 20px;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .btn-mavi { background: #1a56db; color: white; }
+    .btn-mavi:hover { background: #1448c5; }
+    .btn-yesil { background: #38a169; color: white; }
+    .btn-yesil:hover { background: #2f8f5d; }
+    .btn-kirmizi { background: #e53e3e; color: white; padding: 5px 10px; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #f8fafc; padding: 10px 12px; text-align: left; color: #555; font-weight: 600; border-bottom: 2px solid #e2e8f0; }
+    td { padding: 10px 12px; border-bottom: 1px solid #f0f4f8; color: #333; }
+    tr:hover td { background: #f8fafc; }
+    .bos { text-align: center; color: #999; padding: 30px; font-size: 13px; }
+    .basari { background: #c6f6d5; color: #276749; padding: 10px 14px; border-radius: 7px; font-size: 13px; margin-bottom: 12px; display: none; }
+    .hata-mesaj { background: #fed7d7; color: #9b2c2c; padding: 10px 14px; border-radius: 7px; font-size: 13px; margin-bottom: 12px; display: none; }
+    .rozet { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .rozet-mavi { background: #ebf4ff; color: #1a56db; }
+    .rozet-yesil { background: #f0fff4; color: #276749; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚙️ Admin Paneli — Eremiz Mekanik</h1>
+  <button onclick="cikisYap()">Çıkış Yap</button>
+</div>
+
+<div class="tabs">
+  <div class="tab aktif" onclick="sekmeAc('markalar')">🏷️ Markalar</div>
+  <div class="tab" onclick="sekmeAc('urunler')">📦 Ürünler</div>
+  <div class="tab" onclick="sekmeAc('musteriler')">👥 Müşteriler</div>
+  <div class="tab" onclick="sekmeAc('teklifler')">📋 Teklifler</div>
+</div>
+
+<div class="container">
+
+  <!-- MARKALAR -->
+  <div class="sayfa aktif" id="sayfa-markalar">
+    <div class="kart">
+      <h2>Yeni Marka Ekle</h2>
+      <div id="marka-basari" class="basari"></div>
+      <div id="marka-hata" class="hata-mesaj"></div>
+      <div class="form-satir">
+        <div class="form-grup">
+          <label>Marka Adı</label>
+          <input type="text" id="markaAdi" placeholder="örn: Crane, Watts, Danfoss">
+        </div>
+        <div class="form-grup">
+          <label>İskonto Oranı (%)</label>
+          <input type="number" id="markaIskonto" placeholder="örn: 35" min="0" max="100">
+        </div>
+        <div class="form-grup">
+          <label>Karlık Oranı (%)</label>
+          <input type="number" id="markaKarlik" placeholder="örn: 15" min="0" max="100">
+        </div>
+        <div class="form-grup" style="justify-content:flex-end;">
+          <label>&nbsp;</label>
+          <button class="btn btn-mavi" onclick="markaEkle()">+ Ekle</button>
+        </div>
+      </div>
+    </div>
+    <div class="kart">
+      <h2>Markalar</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Marka Adı</th>
+            <th>İskonto</th>
+            <th>Karlık</th>
+            <th>İşlem</th>
+          </tr>
+        </thead>
+        <tbody id="marka-tablo"><tr><td colspan="4" class="bos">Yükleniyor...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ÜRÜNLER -->
+  <div class="sayfa" id="sayfa-urunler">
+    <div class="kart">
+      <h2>Yeni Ürün Ekle</h2>
+      <div id="urun-basari" class="basari"></div>
+      <div id="urun-hata" class="hata-mesaj"></div>
+      <div class="form-satir">
+        <div class="form-grup">
+          <label>Marka</label>
+          <select id="urunMarka"><option value="">Marka seçin</option></select>
+        </div>
+        <div class="form-grup">
+          <label>Ürün Kodu</label>
+          <input type="text" id="urunKod" placeholder="örn: BV-32-16">
+        </div>
+        <div class="form-grup" style="flex:2">
+          <label>Ürün Adı</label>
+          <input type="text" id="urunAdi" placeholder="örn: Kelebek Vana DN32 PN16">
+        </div>
+      </div>
+      <div class="form-satir">
+        <div class="form-grup">
+          <label>Liste Fiyatı (₺)</label>
+          <input type="number" id="urunFiyat" placeholder="örn: 450" min="0">
+        </div>
+        <div class="form-grup">
+          <label>Birim</label>
+          <select id="urunBirim">
+            <option value="adet">adet</option>
+            <option value="metre">metre</option>
+            <option value="kg">kg</option>
+            <option value="set">set</option>
+          </select>
+        </div>
+        <div class="form-grup">
+          <label>Açıklama (opsiyonel)</label>
+          <input type="text" id="urunAciklama" placeholder="ek bilgi">
+        </div>
+        <div class="form-grup" style="justify-content:flex-end;">
+          <label>&nbsp;</label>
+          <button class="btn btn-mavi" onclick="urunEkle()">+ Ekle</button>
+        </div>
+      </div>
+    </div>
+    <div class="kart">
+      <h2>Ürün Listesi</h2>
+      <div style="margin-bottom:12px">
+        <input type="text" id="urunAra" placeholder="🔍 Ürün ara..." oninput="urunAra()" style="width:100%; max-width:300px">
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Marka</th>
+            <th>Kod</th>
+            <th>Ürün Adı</th>
+            <th>Liste Fiyatı</th>
+            <th>Net Fiyat</th>
+            <th>İşlem</th>
+          </tr>
+        </thead>
+        <tbody id="urun-tablo"><tr><td colspan="6" class="bos">Yükleniyor...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MÜŞTERİLER -->
+  <div class="sayfa" id="sayfa-musteriler">
+    <div class="kart">
+      <h2>Yeni Müşteri Ekle</h2>
+      <div id="musteri-basari" class="basari"></div>
+      <div id="musteri-hata" class="hata-mesaj"></div>
+      <div class="form-satir">
+        <div class="form-grup">
+          <label>Firma Adı</label>
+          <input type="text" id="musteriiFirma" placeholder="örn: Ahmet Usta Tesisat">
+        </div>
+        <div class="form-grup">
+          <label>Yetkili Adı</label>
+          <input type="text" id="musteriYetkili" placeholder="örn: Ahmet Yılmaz">
+        </div>
+        <div class="form-grup">
+          <label>E-posta</label>
+          <input type="email" id="musteriEmail" placeholder="ahmet@firma.com">
+        </div>
+        <div class="form-grup">
+          <label>Şifre</label>
+          <input type="password" id="musteriSifre" placeholder="en az 6 karakter">
+        </div>
+        <div class="form-grup">
+          <label>Telefon</label>
+          <input type="text" id="musteriTelefon" placeholder="05xx xxx xx xx">
+        </div>
+        <div class="form-grup" style="justify-content:flex-end;">
+          <label>&nbsp;</label>
+          <button class="btn btn-yesil" onclick="musteriEkle()">+ Müşteri Ekle</button>
+        </div>
+      </div>
+    </div>
+    <div class="kart">
+      <h2>Müşteri Listesi</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Firma</th>
+            <th>Yetkili</th>
+            <th>E-posta</th>
+            <th>Telefon</th>
+          </tr>
+        </thead>
+        <tbody id="musteri-tablo"><tr><td colspan="4" class="bos">Yükleniyor...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TEKLİFLER -->
+  <div class="sayfa" id="sayfa-teklifler">
+    <div class="kart">
+      <h2>Gelen Teklifler</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Müşteri</th>
+            <th>Tarih</th>
+            <th>Tutar</th>
+            <th>Durum</th>
+          </tr>
+        </thead>
+        <tbody id="teklif-tablo"><tr><td colspan="4" class="bos">Yükleniyor...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://bywajypzprsxgxpmktqv.supabase.co'
+  const SUPABASE_KEY = 'sb_publishable_JFbN7WFjxCdsedT9F7rFAg_dU_xQhW5'
+  const { createClient } = supabase
+  const client = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+  let tumUrunler = []
+
+  async function baslat() {
+    const { data: { session } } = await client.auth.getSession()
+    if (!session) { window.location.href = 'index.html'; return }
+    markalariYukle()
+    urunleriYukle()
+    musterileriYukle()
+    teklifleriYukle()
+  }
+
+  function sekmeAc(id) {
+    document.querySelectorAll('.sayfa').forEach(s => s.classList.remove('aktif'))
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('aktif'))
+    document.getElementById('sayfa-' + id).classList.add('aktif')
+    event.target.classList.add('aktif')
+  }
+
+  function mesajGoster(id, mesaj, basari = true) {
+    const el = document.getElementById(id)
+    el.innerText = mesaj
+    el.style.display = 'block'
+    setTimeout(() => el.style.display = 'none', 3000)
+  }
+
+  // MARKALAR
+  async function markalariYukle() {
+    const { data } = await client.from('brands').select('*, margin_rules(margin_rate)').order('name')
+    const tbody = document.getElementById('marka-tablo')
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="bos">Henüz marka eklenmemiş.</td></tr>'
+      return
+    }
+    tbody.innerHTML = data.map(m => `
+      <tr>
+        <td><strong>${m.name}</strong></td>
+        <td><span class="rozet rozet-mavi">%${m.discount_rate}</span></td>
+        <td><span class="rozet rozet-yesil">%${m.margin_rules?.[0]?.margin_rate || 0}</span></td>
+        <td><button class="btn btn-kirmizi" onclick="markaSil('${m.id}')">Sil</button></td>
+      </tr>
+    `).join('')
+
+    // Ürün formundaki marka dropdown'ını güncelle
+    const sel = document.getElementById('urunMarka')
+    sel.innerHTML = '<option value="">Marka seçin</option>' + data.map(m => `<option value="${m.id}">${m.name}</option>`).join('')
+  }
+
+  async function markaEkle() {
+    const adi = document.getElementById('markaAdi').value.trim()
+    const iskonto = parseFloat(document.getElementById('markaIskonto').value) || 0
+    const karlik = parseFloat(document.getElementById('markaKarlik').value) || 0
+
+    if (!adi) { mesajGoster('marka-hata', 'Marka adı boş olamaz.', false); return }
+
+    const { data, error } = await client.from('brands')
+      .insert({ name: adi, discount_rate: iskonto })
+      .select().single()
+
+    if (error) { mesajGoster('marka-hata', 'Hata: ' + error.message, false); return }
+
+    await client.from('margin_rules').insert({ brand_id: data.id, margin_rate: karlik })
+
+    document.getElementById('markaAdi').value = ''
+    document.getElementById('markaIskonto').value = ''
+    document.getElementById('markaKarlik').value = ''
+    mesajGoster('marka-basari', adi + ' markası eklendi ✅')
+    markalariYukle()
+  }
+
+  async function markaSil(id) {
+    if (!confirm('Bu markayı silmek istiyor musunuz?')) return
+    await client.from('margin_rules').delete().eq('brand_id', id)
+    await client.from('brands').delete().eq('id', id)
+    markalariYukle()
+  }
+
+  // ÜRÜNLER
+  async function urunleriYukle() {
+    const { data } = await client.from('products')
+      .select('*, brands(name, discount_rate, margin_rules(margin_rate))')
+      .order('name')
+    tumUrunler = data || []
+    urunTabloGuncelle(tumUrunler)
+  }
+
+  function urunTabloGuncelle(liste) {
+    const tbody = document.getElementById('urun-tablo')
+    if (!liste || liste.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="bos">Henüz ürün eklenmemiş.</td></tr>'
+      return
+    }
+    tbody.innerHTML = liste.map(u => {
+      const iskonto = u.brands?.discount_rate || 0
+      const karlik = u.brands?.margin_rules?.[0]?.margin_rate || 0
+      const net = u.list_price * (1 - iskonto / 100) * (1 + karlik / 100)
+      return `
+        <tr>
+          <td>${u.brands?.name || '-'}</td>
+          <td><small style="color:#888">${u.product_code || '-'}</small></td>
+          <td>${u.name}</td>
+          <td>₺${u.list_price.toFixed(2)}</td>
+          <td><strong style="color:#1a56db">₺${net.toFixed(2)}</strong></td>
+          <td><button class="btn btn-kirmizi" onclick="urunSil('${u.id}')">Sil</button></td>
+        </tr>
+      `
+    }).join('')
+  }
+
+  function urunAra() {
+    const q = document.getElementById('urunAra').value.toLowerCase()
+    const filtre = tumUrunler.filter(u =>
+      u.name.toLowerCase().includes(q) ||
+      (u.product_code || '').toLowerCase().includes(q) ||
+      (u.brands?.name || '').toLowerCase().includes(q)
+    )
+    urunTabloGuncelle(filtre)
+  }
+
+  async function urunEkle() {
+    const markaId = document.getElementById('urunMarka').value
+    const kod = document.getElementById('urunKod').value.trim()
+    const adi = document.getElementById('urunAdi').value.trim()
+    const fiyat = parseFloat(document.getElementById('urunFiyat').value)
+    const birim = document.getElementById('urunBirim').value
+    const aciklama = document.getElementById('urunAciklama').value.trim()
+
+    if (!markaId) { mesajGoster('urun-hata', 'Marka seçin.', false); return }
+    if (!adi) { mesajGoster('urun-hata', 'Ürün adı boş olamaz.', false); return }
+    if (!fiyat || fiyat <= 0) { mesajGoster('urun-hata', 'Geçerli bir fiyat girin.', false); return }
+
+    const { error } = await client.from('products').insert({
+      brand_id: markaId, product_code: kod, name: adi,
+      list_price: fiyat, unit: birim, description: aciklama
+    })
+
+    if (error) { mesajGoster('urun-hata', 'Hata: ' + error.message, false); return }
+
+    document.getElementById('urunKod').value = ''
+    document.getElementById('urunAdi').value = ''
+    document.getElementById('urunFiyat').value = ''
+    document.getElementById('urunAciklama').value = ''
+    mesajGoster('urun-basari', adi + ' eklendi ✅')
+    urunleriYukle()
+  }
+
+  async function urunSil(id) {
+    if (!confirm('Bu ürünü silmek istiyor musunuz?')) return
+    await client.from('products').delete().eq('id', id)
+    urunleriYukle()
+  }
+
+  // MÜŞTERİLER
+  async function musterileriYukle() {
+    const { data } = await client.from('customers').select('*').order('company_name')
+    const tbody = document.getElementById('musteri-tablo')
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="bos">Henüz müşteri eklenmemiş.</td></tr>'
+      return
+    }
+    tbody.innerHTML = data.map(m => `
+      <tr>
+        <td><strong>${m.company_name}</strong></td>
+        <td>${m.contact_name || '-'}</td>
+        <td>${m.email}</td>
+        <td>${m.phone || '-'}</td>
+      </tr>
+    `).join('')
+  }
+
+  async function musteriEkle() {
+    const firma = document.getElementById('musteriiFirma').value.trim()
+    const yetkili = document.getElementById('musteriYetkili').value.trim()
+    const email = document.getElementById('musteriEmail').value.trim()
+    const sifre = document.getElementById('musteriSifre').value
+    const telefon = document.getElementById('musteriTelefon').value.trim()
+
+    if (!firma || !email || !sifre) {
+      mesajGoster('musteri-hata', 'Firma adı, e-posta ve şifre zorunlu.', false); return
+    }
+    if (sifre.length < 6) {
+      mesajGoster('musteri-hata', 'Şifre en az 6 karakter olmalı.', false); return
+    }
+
+    const { data: authData, error: authErr } = await client.auth.signUp({ email, password: sifre })
+    if (authErr) { mesajGoster('musteri-hata', 'Hata: ' + authErr.message, false); return }
+
+    await client.from('customers').insert({
+      id: authData.user.id, company_name: firma,
+      contact_name: yetkili, email, phone: telefon
+    })
+
+    document.getElementById('musteriiFirma').value = ''
+    document.getElementById('musteriYetkili').value = ''
+    document.getElementById('musteriEmail').value = ''
+    document.getElementById('musteriSifre').value = ''
+    document.getElementById('musteriTelefon').value = ''
+    mesajGoster('musteri-basari', firma + ' müşterisi eklendi ✅')
+    musterileriYukle()
+  }
+
+  // TEKLİFLER
+  async function teklifleriYukle() {
+    const { data } = await client.from('quotes')
+      .select('*, customers(company_name)')
+      .order('created_at', { ascending: false })
+    const tbody = document.getElementById('teklif-tablo')
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="bos">Henüz teklif gelmemiş.</td></tr>'
+      return
+    }
+    tbody.innerHTML = data.map(t => {
+      const tarih = new Date(t.created_at).toLocaleDateString('tr-TR')
+      const durum = t.status === 'onaylandi'
+        ? '<span class="rozet rozet-yesil">✅ Onaylandı</span>'
+        : '<span class="rozet rozet-mavi">📝 Taslak</span>'
+      return `
+        <tr>
+          <td><strong>${t.customers?.company_name || 'Bilinmiyor'}</strong></td>
+          <td>${tarih}</td>
+          <td><strong>₺${parseFloat(t.total_amount).toFixed(2)}</strong></td>
+          <td>${durum}</td>
+        </tr>
+      `
+    }).join('')
+  }
+
+  async function cikisYap() {
+    await client.auth.signOut()
+    window.location.href = 'index.html'
+  }
+
+  baslat()
+</script>
+
+</body>
+</html>
