@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eremiz Mekanik Portal</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; }
+    .header {
+      background: #1a56db;
+      color: white;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 { font-size: 18px; }
+    .header button {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .header button:hover { background: rgba(255,255,255,0.3); }
+    .container { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+    .hosgeldin {
+      background: white;
+      padding: 16px 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      color: #444;
+    }
+    .hosgeldin span { font-weight: 600; color: #1a56db; }
+    .icerik {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 20px;
+    }
+    .kart {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .kart h2 {
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #f0f4f8;
+    }
+    .bos-mesaj {
+      text-align: center;
+      color: #999;
+      padding: 40px 0;
+      font-size: 14px;
+    }
+    .sepet-bos {
+      text-align: center;
+      color: #999;
+      padding: 30px 0;
+      font-size: 13px;
+    }
+    .sepet-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f4f8;
+      font-size: 13px;
+    }
+    .sepet-item-adi { color: #333; font-weight: 500; flex: 1; }
+    .sepet-item-fiyat { color: #1a56db; font-weight: 600; margin: 0 10px; }
+    .sepet-sil {
+      background: none;
+      border: none;
+      color: #e53e3e;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 0 4px;
+    }
+    .sepet-toplam {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 2px solid #f0f4f8;
+      display: flex;
+      justify-content: space-between;
+      font-size: 15px;
+      font-weight: 700;
+      color: #333;
+    }
+    .teklif-btn {
+      width: 100%;
+      padding: 12px;
+      background: #38a169;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 14px;
+    }
+    .teklif-btn:hover { background: #2f8f5d; }
+    .teklif-btn:disabled { background: #999; cursor: not-allowed; }
+    .yukleniyor {
+      text-align: center;
+      color: #999;
+      padding: 20px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🔧 Eremiz Mekanik Portal</h1>
+  <button onclick="cikisYap()">Çıkış Yap</button>
+</div>
+
+<div class="container">
+  <div class="hosgeldin">
+    Hoş geldiniz, <span id="kullaniciEmail">yükleniyor...</span>
+  </div>
+
+  <div class="icerik">
+    <div class="kart">
+      <h2>📦 Ürünler</h2>
+      <div id="urunler" class="yukleniyor">Ürünler yükleniyor...</div>
+    </div>
+
+    <div class="kart">
+      <h2>🛒 Teklif Sepeti</h2>
+      <div id="sepet">
+        <div class="sepet-bos">Henüz ürün eklenmedi.</div>
+      </div>
+      <div class="sepet-toplam" id="toplam" style="display:none">
+        <span>Toplam:</span>
+        <span id="toplamFiyat">₺0</span>
+      </div>
+      <button class="teklif-btn" id="teklifBtn" onclick="teklifOlustur()" style="display:none">
+        ✅ Teklif Oluştur ve Onayla
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://bywajypzprsxgxpmktqv.supabase.co'
+  const SUPABASE_KEY = 'sb_publishable_JFbN7WFjxCdsedT9F7rFAg_dU_xQhW5'
+  const { createClient } = supabase
+  const client = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+  let sepet = []
+  let kullanici = null
+
+  // Giriş kontrolü
+  async function baslat() {
+    const { data: { session } } = await client.auth.getSession()
+    if (!session) {
+      window.location.href = 'index.html'
+      return
+    }
+    kullanici = session.user
+    document.getElementById('kullaniciEmail').innerText = kullanici.email
+    urunleriYukle()
+  }
+
+  // Ürünleri yükle
+  async function urunleriYukle() {
+    const { data, error } = await client
+      .from('products')
+      .select('*, brands(name, discount_rate)')
+      .order('name')
+
+    const div = document.getElementById('urunler')
+
+    if (error || !data || data.length === 0) {
+      div.innerHTML = '<div class="bos-mesaj">Henüz ürün eklenmemiş.<br><small>Admin panelinden ürün ekleyebilirsiniz.</small></div>'
+      return
+    }
+
+    div.innerHTML = data.map(u => {
+      const iskonto = u.brands?.discount_rate || 0
+      const netFiyat = u.list_price * (1 - iskonto / 100)
+      return `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid #f0f4f8;">
+          <div>
+            <div style="font-weight:600; font-size:14px; color:#333">${u.name}</div>
+            <div style="font-size:12px; color:#888">${u.brands?.name || ''} ${u.product_code ? '· ' + u.product_code : ''}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px">
+            <div style="text-align:right">
+              <div style="font-weight:700; color:#1a56db; font-size:14px">₺${netFiyat.toFixed(2)}</div>
+              <div style="font-size:11px; color:#aaa">/ ${u.unit}</div>
+            </div>
+            <button onclick='sepeteEkle(${JSON.stringify(u).replace(/'/g, "&#39;")}, ${netFiyat})'
+              style="background:#1a56db; color:white; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; white-space:nowrap;">
+              + Ekle
+            </button>
+          </div>
+        </div>
+      `
+    }).join('')
+  }
+
+  // Sepete ekle
+  function sepeteEkle(urun, netFiyat) {
+    const mevcut = sepet.find(s => s.id === urun.id)
+    if (mevcut) {
+      mevcut.adet++
+    } else {
+      sepet.push({ ...urun, netFiyat, adet: 1 })
+    }
+    sepetGuncelle()
+  }
+
+  // Sepeti güncelle
+  function sepetGuncelle() {
+    const div = document.getElementById('sepet')
+    const toplamDiv = document.getElementById('toplam')
+    const btn = document.getElementById('teklifBtn')
+
+    if (sepet.length === 0) {
+      div.innerHTML = '<div class="sepet-bos">Henüz ürün eklenmedi.</div>'
+      toplamDiv.style.display = 'none'
+      btn.style.display = 'none'
+      return
+    }
+
+    let toplam = 0
+    div.innerHTML = sepet.map((s, i) => {
+      const ara = s.netFiyat * s.adet
+      toplam += ara
+      return `
+        <div class="sepet-item">
+          <div class="sepet-item-adi">
+            ${s.name}
+            <div style="font-size:11px; color:#999; margin-top:2px">
+              <button onclick="adetDegistir(${i}, -1)" style="background:#f0f4f8; border:none; cursor:pointer; padding:1px 6px; border-radius:4px;">-</button>
+              ${s.adet} adet
+              <button onclick="adetDegistir(${i}, 1)" style="background:#f0f4f8; border:none; cursor:pointer; padding:1px 6px; border-radius:4px;">+</button>
+            </div>
+          </div>
+          <div class="sepet-item-fiyat">₺${ara.toFixed(2)}</div>
+          <button class="sepet-sil" onclick="sepettenCikar(${i})">✕</button>
+        </div>
+      `
+    }).join('')
+
+    document.getElementById('toplamFiyat').innerText = '₺' + toplam.toFixed(2)
+    toplamDiv.style.display = 'flex'
+    btn.style.display = 'block'
+  }
+
+  function adetDegistir(i, fark) {
+    sepet[i].adet += fark
+    if (sepet[i].adet <= 0) sepet.splice(i, 1)
+    sepetGuncelle()
+  }
+
+  function sepettenCikar(i) {
+    sepet.splice(i, 1)
+    sepetGuncelle()
+  }
+
+  // Teklif oluştur
+  async function teklifOlustur() {
+    const btn = document.getElementById('teklifBtn')
+    btn.disabled = true
+    btn.innerText = 'Oluşturuluyor...'
+
+    const toplam = sepet.reduce((t, s) => t + s.netFiyat * s.adet, 0)
+
+    const { data: quote, error: qErr } = await client
+      .from('quotes')
+      .insert({ customer_id: kullanici.id, status: 'onaylandi', total_amount: toplam })
+      .select()
+      .single()
+
+    if (qErr) {
+      alert('Hata: ' + qErr.message)
+      btn.disabled = false
+      btn.innerText = '✅ Teklif Oluştur ve Onayla'
+      return
+    }
+
+    const kalemler = sepet.map(s => ({
+      quote_id: quote.id,
+      product_id: s.id,
+      quantity: s.adet,
+      list_price: s.list_price,
+      net_price: s.netFiyat
+    }))
+
+    await client.from('quote_items').insert(kalemler)
+
+    sepet = []
+    sepetGuncelle()
+    btn.disabled = false
+    btn.innerText = '✅ Teklif Oluştur ve Onayla'
+
+    alert('✅ Teklifiniz başarıyla gönderildi! En kısa sürede sizinle iletişime geçeceğiz.')
+  }
+
+  async function cikisYap() {
+    await client.auth.signOut()
+    window.location.href = 'index.html'
+  }
+
+  baslat()
+</script>
+
+</body>
+</html>
