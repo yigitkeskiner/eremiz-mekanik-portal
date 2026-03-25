@@ -2,30 +2,145 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Eremiz Mekanik Portal</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .login-box {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 400px;
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .logo h1 {
+      color: #1a56db;
+      font-size: 22px;
+    }
+    .logo p {
+      color: #666;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      color: #444;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    input:focus { border-color: #1a56db; }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #1a56db;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.2s;
+    }
+    button:hover { background: #1448c5; }
+    button:disabled { background: #999; cursor: not-allowed; }
+    .hata {
+      color: #e53e3e;
+      font-size: 13px;
+      margin-top: 12px;
+      text-align: center;
+      display: none;
+    }
+  </style>
 </head>
 <body>
-  <h2>Supabase Bağlantı Testi</h2>
-  <p id="sonuc">Test ediliyor...</p>
 
-  <script>
-    const SUPABASE_URL = 'https://bywajypzprsxgxpmktqv.supabase.co'
-    const SUPABASE_KEY = 'sb_publishable_JFbN7WFjxCdsedT9F7rFAg_dU_xQhW5'
+<div class="login-box">
+  <div class="logo">
+    <h1>🔧 Eremiz Mekanik</h1>
+    <p>Müşteri Teklif Portalı</p>
+  </div>
 
-    const { createClient } = supabase
-    const client = createClient(SUPABASE_URL, SUPABASE_KEY)
+  <div class="form-group">
+    <label>E-posta</label>
+    <input type="email" id="email" placeholder="ornek@firma.com">
+  </div>
 
-    async function test() {
-      const { data, error } = await client.from('brands').select('*')
-      if (error) {
-        document.getElementById('sonuc').innerText = 'HATA: ' + error.message
-      } else {
-        document.getElementById('sonuc').innerText = 'BAĞLANTI BAŞARILI ✅ (Marka sayısı: ' + data.length + ')'
-      }
+  <div class="form-group">
+    <label>Şifre</label>
+    <input type="password" id="sifre" placeholder="••••••••">
+  </div>
+
+  <button id="girisBtn" onclick="girisYap()">Giriş Yap</button>
+  <p class="hata" id="hataMesaji">E-posta veya şifre hatalı.</p>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://bywajypzprsxgxpmktqv.supabase.co'
+  const SUPABASE_KEY = 'sb_publishable_JFbN7WFjxCdsedT9F7rFAg_dU_xQhW5'
+  const { createClient } = supabase
+  const client = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+  async function girisYap() {
+    const email = document.getElementById('email').value
+    const sifre = document.getElementById('sifre').value
+    const btn = document.getElementById('girisBtn')
+    const hata = document.getElementById('hataMesaji')
+
+    if (!email || !sifre) {
+      hata.innerText = 'Lütfen tüm alanları doldurun.'
+      hata.style.display = 'block'
+      return
     }
 
-    test()
-  </script>
+    btn.disabled = true
+    btn.innerText = 'Giriş yapılıyor...'
+    hata.style.display = 'none'
+
+    const { data, error } = await client.auth.signInWithPassword({ email, password: sifre })
+
+    if (error) {
+      hata.innerText = 'E-posta veya şifre hatalı.'
+      hata.style.display = 'block'
+      btn.disabled = false
+      btn.innerText = 'Giriş Yap'
+    } else {
+      window.location.href = 'portal.html'
+    }
+  }
+
+  // Enter tuşu ile giriş
+  document.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') girisYap()
+  })
+</script>
+
 </body>
 </html>
