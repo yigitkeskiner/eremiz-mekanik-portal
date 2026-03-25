@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Eremiz Mekanik Portal</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <h2>Supabase Bağlantı Testi</h2>
+  <p id="sonuc">Test ediliyor...</p>
+
+  <script>
+    const SUPABASE_URL = 'https://bywajypzprsxgxpmktqv.supabase.co'
+    const SUPABASE_KEY = 'sb_publishable_JFbN7WFjxCdsedT9F7rFAg_dU_xQhW5'
+
+    const { createClient } = supabase
+    const client = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+    async function test() {
+      const { data, error } = await client.from('brands').select('*')
+      if (error) {
+        document.getElementById('sonuc').innerText = 'HATA: ' + error.message
+      } else {
+        document.getElementById('sonuc').innerText = 'BAĞLANTI BAŞARILI ✅ (Marka sayısı: ' + data.length + ')'
+      }
+    }
+
+    test()
+  </script>
+</body>
+</html>
